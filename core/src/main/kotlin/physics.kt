@@ -8,20 +8,30 @@ import kotlin.math.sqrt
 
 const val gConst = 700f
 
-fun moveShips(
+fun moveUnits(
     units: Array<OrbitalUnit>,
     center: Vector2,
+    centralBody: CentralBody,
     realTimeDelta: Float,
 ) {
     val gameTimeDelta = realTimeDelta * gameSecondsInRealSecond
-    for (unit in units) {
-        moveShip(unit, center, gameTimeDelta, outputPointFloats = null)
+    val markForRemoval = BooleanArray(units.size) { false }
+    units.forEachIndexed { index, unit ->
+        moveShip(unit, center, centralBody, gameTimeDelta, outputPointFloats = null)
+        if (collidesWithCentralBody(unit, center, centralBody)) {
+            markForRemoval[index] = true
+        }
+    }
+    units.toList().filterIndexed { index, _ -> !markForRemoval[index] }.apply {
+        units.setSize(size)
+        forEachIndexed { index, unit -> units.set(index, unit) }
     }
 }
 
 fun moveShip(
     unit: OrbitalUnit,
     center: Vector2,
+    centralBody: CentralBody,
     gameTimeDelta: Float,
     outputPointFloats: FloatArray?
 ) {
@@ -37,7 +47,8 @@ fun moveShip(
     while (gameTimeDeltaRemaining > 0) {
         gameTimeDeltaRemaining -= movementIntegrationStep
 
-        val dt = movementIntegrationStep + if (gameTimeDeltaRemaining < 0f) gameTimeDeltaRemaining else 0f
+        val dt =
+            movementIntegrationStep + if (gameTimeDeltaRemaining < 0f) gameTimeDeltaRemaining else 0f
 
         // x' = x + v(t) * dt/2
         r.set(unit.velocity)
@@ -57,6 +68,7 @@ fun moveShip(
         r.scl(dt / 2)
         unit.position.add(r)
 
+
         // Add coordinates to the output array?
         if (outputPointFloats != null) {
             outputIntervalRemaining -= movementIntegrationStep
@@ -65,7 +77,17 @@ fun moveShip(
                 outputPointFloats.add(unit.x, unit.y)
             }
         }
+
+        if (collidesWithCentralBody(unit, center, centralBody)) {
+            outputPointFloats?.add(unit.x, unit.y)
+            break
+        }
     }
+}
+
+fun collidesWithCentralBody(unit: OrbitalUnit, center: Vector2, centralBody: CentralBody): Boolean {
+    val r = center.cpy().sub(unit.position)
+    return r.len() <= centralBody.radius
 }
 
 private const val movementIntegrationStep = 1f
@@ -79,6 +101,7 @@ fun orbitalPeriod(orbitalUnit: OrbitalUnit, center: Vector2): Float {
 
 fun calculateOrbitPoints(
     orbitalUnit: OrbitalUnit,
+    centralBody: CentralBody,
     center: Vector2,
     maxSegments: Int,
     outputPointFloats: FloatArray,
@@ -95,14 +118,10 @@ fun calculateOrbitPoints(
     outputPointFloats.add(orbitalUnit.x, orbitalUnit.y)
 
     outputPointFloats.setSize(maxSegments * 2)
-    moveShip(orbitalUnit, center, orbitalPeriod, outputPointFloats)
+    moveShip(orbitalUnit, center, centralBody, orbitalPeriod, outputPointFloats)
 
     orbitalUnit.position.set(originalPosition)
     orbitalUnit.velocity.set(originalVelocity)
-
-    if (outputPointFloats.size > 0) {
-        outputPointFloats.add(orbitalUnit.x, orbitalUnit.y)
-    }
 }
 
 private const val maxOrbitalPeriodCutoff = 100_000f

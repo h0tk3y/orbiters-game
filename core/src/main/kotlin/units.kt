@@ -2,6 +2,8 @@ package com.h0tk3y.orbiters
 
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.math.Vector2
+import com.badlogic.gdx.utils.Queue
+import java.util.ArrayDeque
 
 enum class OrbitalUnitKind(val size: Float) {
     SHIP(5f);
@@ -44,4 +46,13 @@ enum class CentralBodyKind(val fill: Color, val radius: Float) {
 class CentralBody(val kind: CentralBodyKind) {
     val radius: Float
         get() = kind.radius
+}
+
+class TimePrecalculated<T>(
+) {
+    var timeAfterHead: Float = 0f
+        private set
+
+    private val timeDeltaQueue = Queue<Float>()
+    private val valuesQueue = Queue<T>()
 }
